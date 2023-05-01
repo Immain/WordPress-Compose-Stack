@@ -1,0 +1,78 @@
+version: '3'
+
+services:
+   db:
+     image: mysql:5.7
+     volumes:
+       - /Documents/WordPress/db/mysql
+     restart: always
+     environment:
+       MYSQL_ROOT_PASSWORD: wordpress
+       MYSQL_DATABASE: wordpress
+       MYSQL_USER: wordpress
+       MYSQL_PASSWORD: wordpress
+
+   wordpress:
+     image: wordpress:latest
+     ports:
+       - 8570:80
+     restart: always
+     environment:
+       WORDPRESS_DB_HOST: db:3306
+       WORDPRESS_DB_USER: wordpress
+       WORDPRESS_DB_PASSWORD: wordpress
+     volumes:
+      - /Documents/WordPress/YOUR_WEBSITE_NAME:/var/www/html
+
+   phpmyadmin:
+     image: phpmyadmin/phpmyadmin
+     links:
+       - db:db
+     ports:
+       - 8080:80
+     restart: always
+     environment:
+       MYSQL_USERNAME: wordpress
+       MYSQL_ROOT_PASSWORD: wordpress
+       PMA_HOST: db
+   
+   adminer:
+     image: adminer
+     restart: always
+     ports:
+       - 8081:8080
+
+   app:
+     image: 'jc21/nginx-proxy-manager:latest'
+     ports:
+       - '80:80'
+       - '81:81'
+       - '443:443'
+     volumes:
+       - ./data:/data
+       - ./letsencrypt:/etc/letsencrypt
+       - ./var/log:/var/log
+     depends_on:
+       - db
+       - wordpress
+       - phpmyadmin
+       - adminer
+     restart: always
+
+   portaineragent:
+     image: portainer/agent
+     environment:
+       AGENT_CLUSTER_ADDR: tasks.portaineragent
+       AGENT_PORT: 9001
+       LOG_LEVEL: debug
+     volumes:
+       - /var/run/docker.sock:/var/run/docker.sock
+       - /var/lib/docker/volumes:/var/lib/docker/volumes
+     networks:
+       - portainer_agent_network
+     deploy:
+       mode: global
+       placement:
+         constraints:
+           - node.platform.os == linux
+     restart: always
